@@ -1,5 +1,3 @@
-use std::fs::OpenOptions;
-use std::io::prelude::*;
 use chrono::Datelike;
 
 struct Event {
@@ -25,7 +23,7 @@ impl Event {
         }
     }
 
-    fn event_str(&self) -> String {
+    fn to_str(&self) -> String {
         self.date.clone() + " - " + &self.time + " - " + &self.weekday
     }
 }
@@ -33,17 +31,39 @@ impl Event {
 fn main() {
     let filename = "history.log";
     let ev = Event::new();
-
-    handle_history(&ev.event_str(), filename);
+    history::handle(ev, filename);
 }
 
-fn handle_history(event: &String, filename: &str) {
-    let mut file = OpenOptions::new()
-        .write(true)
-        .append(true)
-        .create(true)
-        .open(filename)
-        .expect("Can't open file!");
+pub mod history {
+    use std::fs::{OpenOptions, read_to_string};
+    use std::io::Write;
+    use crate::Event;
 
-    writeln!(file, "{}", event).expect("Can't write to file");
+    fn write(event: &String, filename: &str) {
+        let mut file = OpenOptions::new()
+            .write(true)
+            .append(true)
+            .create(true)
+            .open(filename)
+            .expect("Can't open file!");
+
+        writeln!(file, "{}", event).expect("Can't write to file!");
+    }
+
+    fn read(filename: &str) -> Vec<String> {
+        read_to_string(filename)
+            .expect("Can't read file!")
+            .lines()
+            .map(String::from)
+            .collect()
+    }
+
+    pub fn handle(ev: Event, filename: &str) {
+        let last_ev: String = read(filename).last().expect("History out of index").to_string();
+        if last_ev != ev.to_str() && last_ev[24..27] != ev.weekday {
+            println!("UPDATEW");
+            // println!("{:?}", last_ev[24..27]);
+            write(&ev.to_str(), filename);
+        }
+    }
 }
