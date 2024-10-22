@@ -1,5 +1,9 @@
 use chrono::Datelike;
 
+use std::fs::{File, OpenOptions, read_to_string};
+use std::io::Write;
+use std::process::Command;
+
 struct Event {
     date: String,
     time: String,
@@ -29,41 +33,53 @@ impl Event {
 }
 
 fn main() {
-    let filename = "history.log";
+    let UPDATE_WEEKDAY = String::from("Sun");
+
+    let filename = "updates_history.log";
     let ev = Event::new();
-    history::handle(ev, filename);
+
+    let mut file = OpenOptions::new()
+        .write(true)
+        .read(true)
+        .create(true)
+        .append(true)
+        .open(filename)
+        .unwrap();
+
+    if ev.weekday == UPDATE_WEEKDAY {
+        update_history(ev, filename, &mut file);
+    }
 }
 
-pub mod history {
-    use std::fs::{OpenOptions, read_to_string};
-    use std::io::Write;
-    use crate::Event;
+fn read(filename: &str) -> Vec<String> {
+    read_to_string(filename)
+        .expect("Can't read file!")
+        .lines()
+        .map(String::from)
+        .collect()
+}
 
-    fn write(event: &String, filename: &str) {
-        let mut file = OpenOptions::new()
-            .write(true)
-            .append(true)
-            .create(true)
-            .open(filename)
-            .expect("Can't open file!");
+fn update_history(ev: Event, filename: &str, file: &mut File) {
+    let history: Vec<String> = read(filename);
 
-        writeln!(file, "{}", event).expect("Can't write to file!");
-    }
+    if history.len() != 0 {
+        let last_ev: String = history.last().unwrap().to_string();
+        let last_weekday = &last_ev[24..27];
 
-    fn read(filename: &str) -> Vec<String> {
-        read_to_string(filename)
-            .expect("Can't read file!")
-            .lines()
-            .map(String::from)
-            .collect()
-    }
-
-    pub fn handle(ev: Event, filename: &str) {
-        let last_ev: String = read(filename).last().expect("History out of index").to_string();
-        if last_ev != ev.to_str() && last_ev[24..27] != ev.weekday {
-            println!("UPDATEW");
-            // println!("{:?}", last_ev[24..27]);
-            write(&ev.to_str(), filename);
+        if last_ev != ev.to_str() && last_weekday != ev.weekday {
+            // update_sys();
+            writeln!(*file, "{}", &ev.to_str()).expect("Can't write to file!");
         }
     }
+    else {
+        writeln!(*file, "{}", &ev.to_str()).expect("Can't write to file!");
+    }
 }
+
+// THIS DOESNT WORK
+// fn update_sys() {
+//     Command::new("sudo pacman")    
+//         .arg("-Syu")
+//         .spawn()
+//         .expect("Failed to run sudo pacman -Syu");
+// }
